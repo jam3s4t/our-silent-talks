@@ -2,29 +2,42 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Our Silent Talks</title>
-    <link href="https://fonts.googleapis.com/css2?family=Charm:wght@400;700&family=Sarabun:wght@300;400&display=swap" rel="stylesheet">
+    <title>Our Silent Talks | ผีเสื้อและดอกทานตะวัน</title>
+    <link href="https://fonts.googleapis.com/css2?family=Maitree:wght@400;600&family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <audio id="bgm" src="bgm.mp3" loop></audio>
+    <div class="audio-panel">
+        <button onclick="changeVolume(-0.05)"><i class="fas fa-volume-down"></i></button>
+        <span id="volume-percent">50%</span>
+        <button onclick="changeVolume(0.05)"><i class="fas fa-volume-up"></i></button>
+        <audio id="bgm"  loop></audio>
+    </div>
 
     <div id="petal-container"></div>
 
     <div class="story-container">
         <h2 id="story-title">บทสนทนาไร้เสียง</h2>
-        <img id="story-image" src="" alt="Story Image">
-        <p id="story-text"></p>
+        <div class="image-frame">
+            <img id="story-image" src="br11.png" alt="Story Image">
+        </div>
+        <div class="text-area">
+            <p id="story-text">คุณยืนอยู่ตรงหน้าเขาท่ามกลางความเงียบที่รินไหลออกมา...คุณตัดสินใจที่จะหยิบสิ่งใดออกมาเพื่อแทนความรู้สึก?</p>
+        </div>
         
         <div id="choices">
             <button class="btn-camellia" onclick="chooseCamellia()">มอบดอกคามิลเลีย</button>
             <button class="btn-higanbana" onclick="chooseHiganbana()">มอบดอกฮิกังบานะ</button>
         </div>
 
-        <button id="btn-back" class="btn-restart" style="display: none;" onclick="goBack()">ย้อนกลับ</button>
+        <div class="navigation-btns">
+            <button id="btn-back" class="nav-btn" style="display: none;" onclick="goBack()">ย้อนกลับ</button>
+            <button id="btn-next" class="nav-btn" style="display: none;" onclick="goNext()">หน้าถัดไป</button>
+        </div>
 
-        <div class="message-section">
+        <div id="message-input-section" class="message-section" style="display: none;">
             <h3>ทิ้งความรู้สึกของคุณไว้ที่นี่...</h3>
             <input type="text" id="user-input" placeholder="พิมพ์ความรู้สึกของคุณ...">
             <button class="btn-submit" onclick="sendSecretMessage()">ส่งข้อความ</button>

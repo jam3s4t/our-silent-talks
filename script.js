@@ -1,191 +1,204 @@
-let typingTimer;
-let currentStoryText = ""; 
-let historyStack = []; 
-let petalInterval; 
+let currentStep = 0;
+let storyPath = "";
+let currentStoryData = []; // ตัวแปรเก็บว่ากำลังเล่นเรื่องไหนอยู่
 
-// ระบบเซฟประวัติ
-function saveState() {
-    historyStack.push({
-        title: document.getElementById("story-title").innerText,
-        text: currentStoryText,
-        imgSrc: document.getElementById("story-image").getAttribute("src") || "",
-        imgDisplay: document.getElementById("story-image").style.display,
-        choicesHTML: document.getElementById("choices").innerHTML,
-        isDark: document.body.classList.contains("higanbana-mode")
-    });
-    document.getElementById("btn-back").style.display = "inline-block";
+const audio = document.getElementById('bgm');
+const volumeLabel = document.getElementById('volume-percent');
+const root = document.documentElement; // สำหรับสั่งเปลี่ยนสี CSS
+
+// --- ระบบควบคุมเสียง (ปรับได้ละเอียดขึ้น) ---
+function changeVolume(amount) {
+    let newVolume = audio.volume + amount;
+    // ดักไว้ไม่ให้เสียงทะลุ 0 หรือ 1
+    if (newVolume < 0.01) newVolume = 0;
+    if (newVolume > 1) newVolume = 1;
+    
+    audio.volume = newVolume;
+    volumeLabel.innerText = Math.round(newVolume * 100) + "%";
+} // <--- จุดสำคัญอยู่ตรงนี้ครับ! วงเล็บปิดที่หายไปกลับมาแล้ว
+
+// --- ระบบค่อยๆ เร่งเสียงดนตรี (Fade-in) ---
+function fadeInAudio(targetVolume, durationInMs) {
+    audio.volume = 0; // บังคับให้เริ่มจากเสียงเงียบสนิท (0%)
+    audio.play();     // เริ่มเล่นเพลง
+    
+    let interval = 50; // ความถี่ในการขยับเสียง (ทุกๆ 50 มิลลิวินาที)
+    let step = targetVolume / (durationInMs / interval); 
+    
+    let fade = setInterval(function() {
+        if (audio.volume + step < targetVolume) {
+            audio.volume += step;
+            // ให้ตัวเลข % บนหน้าจอวิ่งตามเสียงที่กำลังเร่งขึ้นด้วย
+            volumeLabel.innerText = Math.round(audio.volume * 100) + "%";
+        } else {
+            audio.volume = targetVolume; // เมื่อถึงเป้าหมาย ให้เสียงนิ่ง
+            volumeLabel.innerText = Math.round(targetVolume * 100) + "%";
+            clearInterval(fade); // ปิดระบบเร่งเสียง
+        }
+    }, interval);
 }
 
-// ระบบย้อนกลับ
-function goBack() {
-    if (historyStack.length === 0) return; 
-    let prevState = historyStack.pop(); 
-    
-    document.getElementById("story-title").innerText = prevState.title;
-    typeText("story-text", prevState.text, 50); // <--- ปรับให้ย้อนกลับก็พิมพ์เร็ว 50 ด้วย
-    
-    let img = document.getElementById("story-image");
-    if(prevState.imgSrc && prevState.imgDisplay !== "none") {
-        img.src = prevState.imgSrc;
-        img.style.display = "block";
-    } else {
-        img.style.display = "none";
+// --- เนื้อเรื่อง 1: ผีเสื้อและดอกทานตะวัน (คามิลเลีย) ---
+const butterflyStory = [
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "กาลครั้งหนึ่ง เจ้าผีเสื้อตัวน้อยที่เพิ่งฟักออกมาจากดักแด้ในยามเช้าตรู่ ได้ลืมตาดูโลกกว้างไปพร้อมปีกที่สวยงาม มันบินเที่ยวเล่นไปกับความรู้สึกที่เป็นอิสระ เยี่ยมชมมวลดอกไม้ที่บานสะพรั่ง ใต้แผ่นฟ้าสีน้ำเงิน และเปล่งประกายด้วยแสงพระอาทิตย์ที่อบอุ่น เจ้าผีเสื้อไม่ได้ตระหนักกังวลถึงสิ่งใดแม้แต่น้อย มันเพียงปล่อยให้ธรรมชาติเป็นไปในแบบของมัน เจ้าผีเสื้อตัวน้อยไล่กินน้ำหวานอันแสนอร่อยจากมวลดอกไม้ที่แสนอร่อย", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "จนกระทั่งมันได้มาพบกับดอกทานตะวันสีส้มสดใส ที่กำลังเบ่งบานอย่างสวยงาม แต่ด้วยความที่ดอกทานตะวันเป็นดอกไม้ที่ลำต้นสูงกว่าใครๆ เลยทำให้การจะไปถึงดอกไม้นั้นทำได้ยาก เพราะดอกทานตะวันนั้นไม่ได้มีดอกไม้อื่นๆ เคียงข้างคอยประคับประคองในยามที่ลมพัดผ่าน จึงทำให้ดอกทานตะวันนั้นแทบจะสมบูรณ์แบบเพราะไร้ซึ่งผู้ใดจะเอื้อมถึง เจ้าผีเสื้อเองก็พยายามอยู่หลายครั้งแต่ก็ต้องพบกับความล้มเหลวซ้ำแล้วซ้ำเล่า จนต้องยอมถอดใจเพราะความเหนื่อยล้า", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "และแล้ว พระอาทิตย์ที่เป็นดังแสงนำทางและความอบอุ่นก็ค่อยๆ หายไปอย่างช้าๆ เจ้าผีเสื้อที่เพิ่งเคยต้องเจอกับการเปลี่ยนแปลงเป็นครั้งแรกก็เริ่มที่จะวิตกกังวลถึงสิ่งที่เกิดขึ้น มันได้แต่บินไปมา หาว่าแสงนั้นหายไปไหน แสงที่อบอุ่นค่อยๆ จางหายแทนที่ด้วยความมืดที่เหน็บหนาว เจ้าผีเสื้อได้แต่ภาวนาด้วยความหวังและความกลัว เพราะสิ่งต่างๆ รอบตัวมันนั้นกำลังค่อยๆ หายไป", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "[เจ้าผีเสื้อ] \"(ฉัน...ฉันกลัว...หะ..หายไปไหนกัน)\"", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เจ้าผีเสื้อบินวนไปมาในความมืด พร้อมกับความกลัวและแล้วมันก็บินชนกับตอไม้จนร่วงหล่นสู่พื้น มันนอนคดตัวกอดตัวเองและพูดซ้ำๆ กับตัวเองว่า\n\n[เจ้าผีเสื้อ] \"หายไปไหน...หาย...ไปไหน\"", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เจ้าผีเสื้อนั้นได้แต่กลัว กลัวในสิ่งที่ตัวเองไม่เข้าใจ กลัวในสิ่งที่ตัวเองควบคุมไม่ได้ กลัวกับการเปลี่ยนแปลงและกลัวใจตัวเอง บัดนี้เจ้าผีเสื้อได้ถูกความกลัวกัดกินจนได้แต่หลับตาร้องไห้ ทว่ากลับมีแสงสะท้อนเข้าตาของเจ้าผีเสื้อและปลุกให้มันลุกขึ้นทันใด มันมองหาที่มาของแสงนั้นด้วยใจอันเต็มเปี่ยมไปด้วยความหวังและเปิดตากว้างที่เต็มไปด้วยคราบน้ำตา", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "[เจ้าผีเสื้อ] \"จริงใช่มั้ย..เรา...เราเห็นบางอย่างจริงๆ ใช่มั้ย\"", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เจ้าผีเสื้อตัวน้อยนั้นยืนมองอยู่นาน มันมองหาสิ่งที่แม้แต่ตัวเองก็ไม่แน่ใจว่าเป็นความจริงหรือไม่ มันพยายามมองหาแต่ก็ไร้ซึ่งสิ่งใดปรากฏ จากใจที่เต็มไปด้วยความหวังก็ค่อยๆ ห่อเหี่ยว ตาที่เปิดกว้างก็ค่อยๆ ปิดลงพร้อมกับน้ำตาที่รินไหลออกมา", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "[เจ้าผีเสื้อ] \"(ก้มหน้าลง สะอื้นร้องไห้) กลับ...กลับมานะ...กลับมา..ได้โปรด! ได้โปรด (ร้องไห้)\"", image: "er1.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เจ้าผีเสื้อก้มหน้าร้องไห้พร้อมกับความหวังที่กำลังหายไป แทนที่ด้วยน้ำตาที่สั่นกลัว ทันใดนั้นก็มีลมแรงพัดผ่าน พัดเอาก้อนเมฆที่คอยบดบังท้องฟ้าออก เผยให้เห็นดวงดาวระยิบระยับนับล้านบนแผ่นฟ้าอันกว้างใหญ่ และท่ามกลางหมู่ดาวนั้น ก็มีดาวกลมโตสีขาวที่สว่างไสวกว่าดวงไหนๆ พระจันทร์เต็มดวงกำลังส่งแสงสว่างลงกระทบมวลดอกไม้ที่เบ่งบาน", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "จริงอยู่ที่แสงจันทรานั้น มิอาจเทียมแสงอาทิตย์ แต่ทว่าแสงจันทร์สีขาวที่สาดส่องกลับทำให้มวลดอกไม้นั้นงดงามยิ่งกว่าเดิม จนบางตำนานกล่าวว่า ดอกไม้ที่บานใต้แสงจันทร์นั้น จะเปล่งประกายด้วยสีที่แท้จริงของตัวมันเอง เจ้าผีเสื้อที่รู้สึกถึงแสงจันทร์ที่ส่องกระทบก็ลืมตาขึ้นช้าๆ เมื่อมันเห็นมวลดอกไม้ที่เปล่งประกาย ก็ได้แต่ตั้งคำถามกับตัวเองพร้อมกับความรู้สึกที่ตื้นตันจนยากจะอธิบายเป็นคำพูดได้ จากใจที่ห่อเหี่ยวก็กลับมามีหวัง จากน้ำตาแห่งความกลัวก็กลายเป็นน้ำตาแห่งความสุข", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "[เจ้าผีเสื้อ] \"นี่เราไม่ได้ฝันไปใช่มั้ย...(รอยยิ้มพร้อมน้ำตา) มันเกิดขึ้นจริงๆ แต่ว่า...\"", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เจ้าผีเสื้อพูดออกมาด้วยรอยยิ้มแต่เหมือนกับว่า สิ่งที่มันเห็นก่อนหน้านี้แม้จะเป็นเพียงช่วงเวลาสั้นๆ ที่เห็น แต่มันก็จำได้ว่าสีนั้นช่างแตกต่างกับมวลดอกไม้ด้านล่าง กระทั่งมันเงยหน้าขึ้นมอง ก็ปรากฏดอกไม้สีทองที่เปล่งประกายโดดเดี่ยวแต่สวยงามจนไม่อาจหาดอกไม้ไหนมาเทียม ใต้แสงจันทรานี้ ดอกทานตะวันกลับยิ่งสวยงามเหนือสิ่งใด เจ้าผีเสื้อที่มองไปยังดอกทานตะวันก็ไม่อาจละสายตาจากความสวยงามนั้นได้", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "เพียงได้มอง เจ้าผีเสื้อเองก็เหมือนดังโดนมนตร์สะกด ราวกับว่ามันมองเห็นดอกทานตะวันนั้นยิ้มให้และบอกให้มันลุกขึ้นสู้กับความกลัวในจิตใจ", image: "br11.png" },
+    { title: "ผีเสื้อและดอกทานตะวัน", text: "[เจ้าผีเสื้อ] \"เป็นเธอ..เป็นเธอนั่นเองที่ส่งแสงมาหาเรา ในตอนที่เราสิ้นหวัง เป็นเธอจริงๆ ด้วย..\"\n\nเจ้าผีเสื้อพูดซ้ำๆ พร้อมกับรอยยิ้มบนใบหน้า....", image: "br11.png" }
+];
+
+// --- เนื้อเรื่อง 2: หิ่งห้อยและดอกพลับพลึงสีแดง (ฮิกังบานะ) ---
+const fireflyStory = [
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "ท่ามกลางรัตติกาลที่เงียบสงัดและมืดมิด เจ้าหิ่งห้อยตัวน้อยกระพริบแสงสีเขียวอ่อนเรืองรอง บินร่อนเร่ไปอย่างโดดเดี่ยว มันออกตามหาบางสิ่งที่จะมาเติมเต็มความว่างเปล่าในใจ จนกระทั่งมันบินพลัดหลงเข้าไปในป่าลึก และได้พบกับดอกพลับพลึงสีแดงสด ที่เบ่งบานอยู่อย่างอ้างว้างเพียงลำพัง", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "ดอกไม้นั้นงดงามราวกับมีมนต์ขลัง แต่กลับแฝงไปด้วยความเศร้าสร้อยอย่างประหลาด ก้านดอกที่ไร้ซึ่งใบประดับ ทำให้มันดูเปราะบางแต่ก็เด็ดเดี่ยวในเวลาเดียวกัน เจ้าหิ่งห้อยถูกดึงดูดด้วยความงดงามที่แสนเศร้านั้น มันค่อยๆ บินเข้าไปใกล้ และรวบรวมแสงสว่างทั้งหมดที่มีในตัว เพื่อสาดส่องความอบอุ่นให้กับดอกไม้ที่ดูเหน็บหนาว", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "แสงเรืองรองของหิ่งห้อยตกกระทบกลีบสีแดงสด ทำให้ดอกพลับพลึงดูมีชีวิตชีวาขึ้นมา ราวกับมันกำลังยิ้มรับความอบอุ่นที่ไม่ได้สัมผัสมาเนิ่นนาน เจ้าหิ่งห้อยรู้สึกถึงความสุขที่เอ่อล้นในใจ มันบินวนเวียน คอยปกป้องและอยู่เคียงข้าง\n\n[เจ้าหิ่งห้อย] \"ไม่ต้องกลัวความมืดแล้วนะ... ฉันจะส่องแสงให้เธอเอง\"", image: "br11.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "มันคิดว่าช่วงเวลานี้จะเป็นนิรันดร์ มันหวังเพียงจะได้ใช้ชีวิตที่เหลืออยู่เพื่อเป็นแสงสว่างให้ดอกไม้ดอกนี้ตลอดไป... แต่แล้ว กฎเกณฑ์ของธรรมชาติก็มักจะโหดร้ายเสมอ", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "เมื่อเวลาผ่านไป สายลมเย็นเยียบแห่งรุ่งอรุณเริ่มพัดผ่านมา ท้องฟ้าที่เคยดำสนิทเริ่มเปลี่ยนเป็นสีเทาหม่น แสงอาทิตย์ที่กำลังจะสาดส่องคือสัญญาณเตือนว่าเวลาของเจ้าหิ่งห้อยกำลังจะหมดลง แสงในตัวของมันเริ่มกระพริบติดขัดและอ่อนแรงลงเรื่อยๆ", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "เจ้าหิ่งห้อยเริ่มตื่นตระหนก มันพยายามเบ่งแสงให้สว่างขึ้น แต่ยิ่งพยายาม แสงนั้นก็ยิ่งริบหรี่\n\n[เจ้าหิ่งห้อย] \"(หอบเหนื่อย) ไม่นะ... อย่าเพิ่งสิ... ฉันยังอยากอยู่ตรงนี้...\"", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "มันสัมผัสได้ถึงความไร้เรี่ยวแรงของตัวเอง และสัมผัสได้ว่าดอกพลับพลึงแดงกำลังสั่นไหวไปตามแรงลม ราวกับกำลังบอกลามัน ความเป็นจริงเริ่มกัดกินหัวใจของเจ้าหิ่งห้อย มันรู้ดีว่าไม่อาจสู้กับแสงสว่างของวันใหม่ได้ และไม่อาจดึงดันอยู่เคียงข้างดอกไม้ดอกนี้ได้อีกต่อไป", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "ความรู้สึกผิดหวังและสิ้นหวังถาโถมเข้ามาจนมันแทบพยุงปีกไว้ไม่อยู่ มันพยายามบินเข้าไปเกาะที่ก้านดอกไม้แน่นๆ หลับตาลงพร้อมกับน้ำตาที่ร่วงหล่น\n\n[เจ้าหิ่งห้อย] \"(สะอื้น) ทำไมล่ะ... ทำไมเราถึงอยู่ด้วยกันไม่ได้... ฉันไม่อยากไป... ได้โปรด... (ร้องไห้)\"", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "กิ่งก้านของดอกพลับพลึงแดงเอนไหวมาสัมผัสปีกของมันอย่างแผ่วเบา ราวกับจะปลอบโยน แต่ก็เป็นการผลักไสที่อ่อนโยนที่สุด เพื่อให้เจ้าหิ่งห้อยหลบหนีไปก่อนที่แสงตะวันจะกลืนกินมัน", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "ในที่สุด ลมกระโชกแรงก็พัดมาพรากทั้งสองออกจากกัน เจ้าหิ่งห้อยหมดแรงและถูกลมพัดปลิวห่างออกไปเรื่อยๆ สิ่งสุดท้ายที่มันเห็นผ่านม่านน้ำตา คือดอกพลับพลึงสีแดงที่ยังคงยืนหยัดอย่างโดดเดี่ยว", image: "er1.png" },
+    { title: "หิ่งห้อยและดอกพลับพลึงแดง", text: "กลีบดอกสีแดงร่วงหล่นลงสู่พื้นดินราวกับหยดน้ำตาแห่งความโศกเศร้า การพบพานที่สวยงามจบลงด้วยการจากลาที่ขมขื่น เจ้าหิ่งห้อยได้แต่ปล่อยตัวเองให้ล่องลอยไปตามลม พร้อมกับแสงสุดท้ายที่ดับวูบลง เหลือทิ้งไว้เพียงความทรงจำที่แตกสลาย และคำถามที่ไร้คำตอบในหัวใจ...", image: "er1.png" }
+];
+
+// --- ฟังก์ชันเปลี่ยนสี Theme ตามเส้นทาง ---
+function setMoodTheme(type) {
+    if (type === 'camellia') {
+        root.style.setProperty('--bg-dark', '#0a192f'); // สีน้ำเงินรัตติกาล
+        root.style.setProperty('--accent-color', '#d4af37'); // สีทองประกายจันทร์
+    } else if (type === 'higanbana') {
+        root.style.setProperty('--bg-dark', '#1a0505'); // สีดำอมแดงเลือด
+        root.style.setProperty('--accent-color', '#ff3333'); // สีแดงฮิกังบานะ
     }
-    
-    let choices = document.getElementById("choices");
-    choices.innerHTML = prevState.choicesHTML;
-    choices.style.display = "block";
-    
-    if (prevState.isDark) {
-        document.body.classList.add("higanbana-mode");
-        startPetals();
-    } else {
-        document.body.classList.remove("higanbana-mode");
-        stopPetals();
-    }
-    
-    triggerCinematic("story-image");
-    triggerCinematic("choices");
-    
-    if (historyStack.length === 0) {
-        document.getElementById("btn-back").style.display = "none";
-    }
 }
 
-// ระบบดอกไม้ตก
-function startPetals() {
-    if(document.getElementById("petal-container").children.length > 0) return; 
-    
-    petalInterval = setInterval(() => {
-        let petal = document.createElement("div");
-        petal.classList.add("petal");
-        
-        petal.style.left = Math.random() * 100 + "vw";
-        petal.style.animationDuration = (Math.random() * 3 + 3) + "s"; 
-        petal.style.opacity = (Math.random() * 0.5) + 0.3;
-        petal.style.transform = `scale(${Math.random() * 0.5 + 0.5})`;
-        
-        document.getElementById("petal-container").appendChild(petal);
-        setTimeout(() => { petal.remove(); }, 6000);
-    }, 200); 
-}
-
-function stopPetals() {
-    clearInterval(petalInterval);
-    document.getElementById("petal-container").innerHTML = ""; 
-}
-
-// 👨‍🏫 สังเกตตรงนี้ครับ: ฟังก์ชันพิมพ์ดีด ความเร็วตั้งไว้ที่ 10 ตามที่คุณต้องการแล้ว
-function typeText(elementId, text, speed = 10) {
-    currentStoryText = text; 
-    let element = document.getElementById(elementId);
-    element.innerText = ""; 
-    clearInterval(typingTimer); 
-    let i = 0;
-    typingTimer = setInterval(() => {
-        if (i < text.length) {
-            element.innerText += text.charAt(i); i++;
-        } else { clearInterval(typingTimer); }
-    }, speed); 
-}
-
-// แอนิเมชันความสมูท
-function triggerCinematic(elementId) {
-    let element = document.getElementById(elementId);
-    element.classList.remove("cinematic-fade"); 
-    void element.offsetWidth; 
-    element.classList.add("cinematic-fade");
-}
-
-// ระบบเล่นเสียงเพลง
-function playMusic() {
-    let bgm = document.getElementById("bgm");
-    if (bgm.paused) { bgm.play(); bgm.volume = 0.3; }
-}
-
-// ==========================================
-// เส้นทางเนื้อเรื่อง
-// ==========================================
+// --- การเลือกเส้นทาง พร้อมระบบสลับเพลงอัตโนมัติ ---
 function chooseCamellia() {
-    saveState(); 
-    playMusic(); // <--- เพลงจะเริ่มเล่นตรงนี้! (เมื่อถูกคลิก)
-    document.getElementById("story-title").innerText = "ความรักที่สมบูรณ์แบบ";
-    typeText("story-text", "คุณยื่นดอกคามิลเลียสีชมพูอ่อนให้เขา บรรยากาศรอบตัวดูอบอุ่นขึ้น... เขาเอื้อมมือมารับดอกไม้นั้นไว้ คุณจะทำอย่างไรต่อไป?");
-    document.body.classList.remove("higanbana-mode");
-    stopPetals();
+    storyPath = "camellia";
+    currentStoryData = butterflyStory;
+    currentStep = 0;
     
-    let img = document.getElementById("story-image");
-    img.src = "br11.png"; 
-    img.style.display = "block";
-    triggerCinematic("story-image"); 
+    setMoodTheme('camellia');
+    startPetals('sakura');
     
-    let choices = document.getElementById("choices");
-    choices.innerHTML = `
-        <button class="btn-camellia" onclick="endingCamelliaHoldHands()">จับมือเขาไว้</button>
-        <button class="btn-camellia" onclick="endingCamelliaSmile()">ยิ้มแล้วเดินเคียงข้างกัน</button>
-    `;
-    triggerCinematic("choices"); 
-}
-
-function endingCamelliaHoldHands() {
-    saveState();
-    document.getElementById("story-title").innerText = "สัมผัสที่อบอุ่น (ตอนจบ)";
-    typeText("story-text", "คุณเอื้อมไปจับมือเขา ความอบอุ่นถ่ายทอดถึงกันโดยไม่ต้องมีคำพูดใดๆ เรื่องราวบทใหม่กำลังจะเริ่มต้นขึ้น...");
-    document.getElementById("choices").style.display = "none";
-}
-
-function endingCamelliaSmile() {
-    saveState();
-    document.getElementById("story-title").innerText = "ก้าวเดินต่อไปด้วยกัน (ตอนจบ)";
-    typeText("story-text", "คุณส่งยิ้มให้เขา แล้วทั้งสองก็ก้าวเดินออกไปพร้อมกัน ท่ามกลางแสงแดดอ่อนๆ ที่ทอดผ่านเส้นทาง...");
-    document.getElementById("choices").style.display = "none";
+    document.getElementById('choices').style.display = 'none';
+    document.getElementById('btn-next').style.display = 'inline-block';
+    
+    // สั่งโหลดเพลงสำหรับฝั่งผีเสื้อและดอกทานตะวัน
+    audio.src = "bgm_butterfly.mp3"; 
+    audio.load(); // สั่งให้ระบบเตรียมพร้อมโหลดไฟล์ใหม่
+    fadeInAudio(0.4, 5000); // ค่อยๆ เฟดเสียงดังขึ้นจนถึง 40% ภายในเวลา 5 วินาที
+    
+    updateUI();
 }
 
 function chooseHiganbana() {
-    saveState(); 
-    playMusic(); // <--- หรือเพลงจะเริ่มเล่นตรงนี้! (ถ้าเลือกฮิกังบานะ)
-    document.getElementById("story-title").innerText = "การจากลาที่งดงาม";
-    typeText("story-text", "คุณมอบดอกฮิกังบานะสีแดงสด ท้องฟ้าเริ่มหม่นลง เขารับมันไว้ด้วยสายตาที่เข้าใจความหมาย... ถึงเวลาต้องตัดสินใจขั้นสุดท้าย");
+    storyPath = "higanbana";
+    currentStoryData = fireflyStory;
+    currentStep = 0;
     
-    document.body.classList.add("higanbana-mode");
-    startPetals(); 
+    setMoodTheme('higanbana');
+    startPetals('red');
     
-    let img = document.getElementById("story-image");
-    img.src = "er1.png"; 
-    img.style.display = "block";
-    triggerCinematic("story-image"); 
+    document.getElementById('choices').style.display = 'none';
+    document.getElementById('btn-next').style.display = 'inline-block';
     
-    let choices = document.getElementById("choices");
-    choices.innerHTML = `
-        <button class="btn-higanbana" onclick="endingHiganbanaTurnAway()">หันหลังเดินจากไป</button>
-        <button class="btn-higanbana" onclick="endingHiganbanaGoodbye()">กล่าวคำอำลา</button>
-    `;
-    triggerCinematic("choices"); 
+    // สั่งโหลดเพลงสำหรับฝั่งหิ่งห้อยและดอกพลับพลึงแดง
+    audio.src = "bgm_firefly.mp3"; 
+    audio.load(); // สั่งให้ระบบเตรียมพร้อมโหลดไฟล์ใหม่
+    fadeInAudio(0.4, 5000); // ค่อยๆ เฟดเสียงดังขึ้นจนถึง 40% ภายในเวลา 5 วินาที
+    
+    updateUI();
 }
 
-function endingHiganbanaTurnAway() {
-    saveState();
-    document.getElementById("story-title").innerText = "ความทรงจำสีจาง (ตอนจบ)";
-    typeText("story-text", "คุณหันหลังกลับและก้าวเดินออกไปโดยไม่เหลียวมอง ปล่อยให้ความทรงจำถูกเก็บไว้เบื้องหลังตลอดกาล...");
-    document.getElementById("choices").style.display = "none";
+function updateUI() {
+    const step = currentStoryData[currentStep];
+    
+    // อัปเดตข้อความและรูป
+    document.getElementById('story-title').innerText = step.title;
+    document.getElementById('story-text').innerText = step.text;
+    document.getElementById('story-image').src = step.image;
+    
+    // คุมปุ่มย้อนกลับ
+    document.getElementById('btn-back').style.display = currentStep > 0 ? 'inline-block' : 'none';
+    
+    // คุมปุ่มหน้าถัดไป
+    if (currentStep === currentStoryData.length - 1) {
+        document.getElementById('btn-next').innerText = "บอกความรู้สึกของคุณ";
+    } else {
+        document.getElementById('btn-next').innerText = "หน้าถัดไป";
+    }
 }
 
-function endingHiganbanaGoodbye() {
-    saveState();
-    document.getElementById("story-title").innerText = "คำลาสุดท้าย (ตอนจบ)";
-    typeText("story-text", "'ขอบคุณสำหรับทุกอย่าง' คุณเอ่ยคำลาก่อนจะแยกย้ายกันไปเติบโตในเส้นทางของตัวเองอย่างงดงาม...");
-    document.getElementById("choices").style.display = "none";
+function goNext() {
+    if (currentStep < currentStoryData.length - 1) {
+        currentStep++;
+        updateUI();
+    } else {
+        document.getElementById('btn-next').style.display = 'none';
+        document.getElementById('btn-back').style.display = 'none';
+        document.getElementById('message-input-section').style.display = 'block';
+        document.getElementById('story-text').innerText = storyPath === 'camellia' ? "ใต้แสงจันทร์นี้... ถึงตาคุณแล้วที่จะบอกความในใจ" : "ท่ามกลางลมกระโชกแรง... ทิ้งความรู้สึกสุดท้ายของคุณไว้ที่นี่";
+    }
+}
+
+function goBack() {
+    if (currentStep > 0) {
+        currentStep--;
+        updateUI();
+    }
+}
+
+// --- ระบบเอฟเฟกต์กลีบดอกไม้โปรย (เวอร์ชันอัปเกรดใช้รูปภาพจริง) ---
+function startPetals(type) {
+    const container = document.getElementById('petal-container');
+    container.innerHTML = '';
+    
+    // กำหนดรูปภาพกลีบดอกไม้ตามเส้นทางที่เลือก
+    const petalImage = type === 'sakura' ? 'url("petal_camellia.png")' : 'url("petal_higanbana.png")';
+    
+    for (let i = 0; i < 30; i++) {
+        const petal = document.createElement('div');
+        petal.className = 'petal';
+        
+        // สุ่มตำแหน่งเริ่มต้น
+        petal.style.left = Math.random() * 100 + 'vw';
+        
+        // สุ่มขนาดกลีบดอกไม้ให้เล็กใหญ่สลับกันไป (15px ถึง 35px)
+        let size = Math.random() * 20 + 15; 
+        petal.style.width = size + 'px';
+        petal.style.height = size + 'px';
+        
+        // ใส่รูปภาพแทนสีพื้นหลัง
+        petal.style.backgroundImage = petalImage;
+        petal.style.backgroundSize = 'contain';
+        petal.style.backgroundRepeat = 'no-repeat';
+        petal.style.backgroundColor = 'transparent'; // ลบสีพื้นหลังเดิมทิ้ง
+        petal.style.borderRadius = '0'; // ลบความโค้งเดิมของ CSS ทิ้งเพื่อให้รูปทรงเป็นตามไฟล์ภาพ
+        
+        // สุ่มความเร็วและจังหวะร่วงหล่น (ปรับให้ร่วงช้าลงนิดนึงเพื่อความละมุน 3-6 วินาที)
+        petal.style.animationDuration = Math.random() * 3 + 3 + 's';
+        petal.style.animationDelay = Math.random() * 5 + 's';
+        
+        container.appendChild(petal);
+    }
 }
 
 function sendSecretMessage() {
-    let inputField = document.getElementById("user-input");
-    if(inputField.value.trim() === "") return;
-    inputField.value = ""; 
-    document.getElementById("status-message").innerText = "ความรู้สึกของคุณถูกส่งไปเก็บไว้ในที่ที่ปลอดภัยแล้ว...";
-    setTimeout(() => { document.getElementById("status-message").innerText = ""; }, 3000);
+    const msg = document.getElementById('user-input').value;
+    if(msg) {
+        document.getElementById('status-message').innerText = storyPath === 'camellia' ? "ความหวังของคุณถูกส่งไปถึงดวงดาวแล้ว..." : "น้ำตาและความรู้สึกของคุณถูกสายลมพัดพาไปแล้ว...";
+        document.getElementById('user-input').value = "";
+    }
 }
-
-// 👨‍🏫 ตอนเปิดเว็บครั้งแรก สมอง JS จะสั่งให้พิมพ์ข้อความแรกขึ้นมา
-window.onload = () => {
-    typeText("story-text", "คุณยืนอยู่ตรงหน้าเขา ท่ามกลางความเงียบงันที่ลอยวนอยู่ในอากาศ... คุณตัดสินใจที่จะหยิบสิ่งใดออกมาเพื่อแทนความรู้สึก?");
-};
