@@ -1,3 +1,32 @@
+// --- ระบบทักทายอัจฉริยะและเช็กความจำ (กล่องดำ) ---
+window.onload = function() {
+    const hour = new Date().getHours();
+    let greeting = "";
+    
+    // เช็กเวลาเพื่อเปลี่ยนคำทักทาย
+    if (hour >= 5 && hour < 12) {
+        greeting = "อรุณสวัสดิ์...";
+    } else if (hour >= 12 && hour < 18) {
+        greeting = "สวัสดีตอนบ่าย...";
+    } else {
+        greeting = "ค่ำคืนนี้ช่างเงียบสงบ...";
+    }
+
+    // เช็กความจำว่าเคยเลือกดอกไม้อะไรไปแล้วหรือยัง
+    const savedFlower = localStorage.getItem('chosenFlower');
+    let memoryText = "";
+    
+    if (savedFlower === 'camellia') {
+        memoryText = " ดอกทานตะวันสีทองยังคงรอคอยคุณอยู่เสมอ";
+    } else if (savedFlower === 'higanbana') {
+        memoryText = " หิ่งห้อยตัวน้อยยังคงจดจำความอบอุ่นของคุณได้";
+    }
+
+    // อัปเดตข้อความต้อนรับในหน้าแรก
+    const defaultText = "คุณยืนอยู่ตรงหน้าเขาท่ามกลางความเงียบที่รินไหลออกมา...คุณตัดสินใจที่จะหยิบสิ่งใดออกมาเพื่อแทนความรู้สึก?";
+    document.getElementById('story-text').innerText = greeting + memoryText + "\n\n" + defaultText;
+};
+
 let currentStep = 0;
 let storyPath = "";
 let currentStoryData = []; // ตัวแปรเก็บว่ากำลังเล่นเรื่องไหนอยู่
@@ -15,7 +44,7 @@ function changeVolume(amount) {
     
     audio.volume = newVolume;
     volumeLabel.innerText = Math.round(newVolume * 100) + "%";
-} // <--- จุดสำคัญอยู่ตรงนี้ครับ! วงเล็บปิดที่หายไปกลับมาแล้ว
+}
 
 // --- ระบบค่อยๆ เร่งเสียงดนตรี (Fade-in) ---
 function fadeInAudio(targetVolume, durationInMs) {
@@ -85,6 +114,7 @@ function setMoodTheme(type) {
 
 // --- การเลือกเส้นทาง พร้อมระบบสลับเพลงอัตโนมัติ ---
 function chooseCamellia() {
+    localStorage.setItem('chosenFlower', 'camellia'); // บันทึกความจำลงกล่องดำ
     storyPath = "camellia";
     currentStoryData = butterflyStory;
     currentStep = 0;
@@ -97,13 +127,14 @@ function chooseCamellia() {
     
     // สั่งโหลดเพลงสำหรับฝั่งผีเสื้อและดอกทานตะวัน
     audio.src = "bgm_butterfly.mp3"; 
-    audio.load(); // สั่งให้ระบบเตรียมพร้อมโหลดไฟล์ใหม่
-    fadeInAudio(0.4, 5000); // ค่อยๆ เฟดเสียงดังขึ้นจนถึง 40% ภายในเวลา 5 วินาที
+    audio.load(); 
+    fadeInAudio(0.4, 5000); 
     
     updateUI();
 }
 
 function chooseHiganbana() {
+    localStorage.setItem('chosenFlower', 'higanbana'); // บันทึกความจำลงกล่องดำ
     storyPath = "higanbana";
     currentStoryData = fireflyStory;
     currentStep = 0;
@@ -116,29 +147,45 @@ function chooseHiganbana() {
     
     // สั่งโหลดเพลงสำหรับฝั่งหิ่งห้อยและดอกพลับพลึงแดง
     audio.src = "bgm_firefly.mp3"; 
-    audio.load(); // สั่งให้ระบบเตรียมพร้อมโหลดไฟล์ใหม่
-    fadeInAudio(0.4, 5000); // ค่อยๆ เฟดเสียงดังขึ้นจนถึง 40% ภายในเวลา 5 วินาที
+    audio.load(); 
+    fadeInAudio(0.4, 5000); 
     
     updateUI();
 }
 
+// --- ฟังก์ชันอัปเดตหน้าจอ (ใส่ระบบ Fade-in/Fade-out อารมณ์ภาพยนตร์) ---
 function updateUI() {
-    const step = currentStoryData[currentStep];
-    
-    // อัปเดตข้อความและรูป
-    document.getElementById('story-title').innerText = step.title;
-    document.getElementById('story-text').innerText = step.text;
-    document.getElementById('story-image').src = step.image;
-    
-    // คุมปุ่มย้อนกลับ
-    document.getElementById('btn-back').style.display = currentStep > 0 ? 'inline-block' : 'none';
-    
-    // คุมปุ่มหน้าถัดไป
-    if (currentStep === currentStoryData.length - 1) {
-        document.getElementById('btn-next').innerText = "บอกความรู้สึกของคุณ";
-    } else {
-        document.getElementById('btn-next').innerText = "หน้าถัดไป";
-    }
+    const titleEl = document.getElementById('story-title');
+    const textEl = document.getElementById('story-text');
+    const imgEl = document.getElementById('story-image');
+
+    // 1. สั่งให้ภาพและตัวหนังสือค่อยๆ จางหายไปก่อน (1 วินาทีตาม CSS)
+    titleEl.classList.add('fade-out'); 
+    textEl.classList.add('fade-out'); 
+    imgEl.classList.add('fade-out');
+
+    // 2. หน่วงเวลา 1 วินาที (1000ms) รอให้จางสนิท แล้วค่อยแอบสลับข้อมูลหลังฉาก
+    setTimeout(() => {
+        const step = currentStoryData[currentStep];
+        
+        titleEl.innerText = step.title;
+        textEl.innerText = step.text;
+        imgEl.src = step.image;
+        
+        document.getElementById('btn-back').style.display = currentStep > 0 ? 'inline-block' : 'none';
+        
+        if (currentStep === currentStoryData.length - 1) {
+            document.getElementById('btn-next').innerText = "บอกความรู้สึกของคุณ";
+        } else {
+            document.getElementById('btn-next').innerText = "หน้าถัดไป";
+        }
+
+        // 3. เอาคลาส fade-out ออก เพื่อให้ข้อมูลหน้าใหม่ค่อยๆ สว่างและลอยขึ้นมาอย่างนุ่มนวล
+        titleEl.classList.remove('fade-out'); 
+        textEl.classList.remove('fade-out'); 
+        imgEl.classList.remove('fade-out');
+
+    }, 1000); // 1000 มิลลิวินาที (1 วินาที) ซิงค์กับ CSS พอดีเป๊ะ
 }
 
 function goNext() {
@@ -187,7 +234,7 @@ function startPetals(type) {
         petal.style.backgroundColor = 'transparent'; // ลบสีพื้นหลังเดิมทิ้ง
         petal.style.borderRadius = '0'; // ลบความโค้งเดิมของ CSS ทิ้งเพื่อให้รูปทรงเป็นตามไฟล์ภาพ
         
-        // สุ่มความเร็วและจังหวะร่วงหล่น (ปรับให้ร่วงช้าลงนิดนึงเพื่อความละมุน 3-6 วินาที)
+        // สุ่มความเร็วและจังหวะร่วงหล่น
         petal.style.animationDuration = Math.random() * 3 + 3 + 's';
         petal.style.animationDelay = Math.random() * 5 + 's';
         
@@ -195,10 +242,17 @@ function startPetals(type) {
     }
 }
 
+// --- ระบบส่งและบันทึกข้อความความรู้สึก ---
 function sendSecretMessage() {
     const msg = document.getElementById('user-input').value;
     if(msg) {
-        document.getElementById('status-message').innerText = storyPath === 'camellia' ? "ความหวังของคุณถูกส่งไปถึงดวงดาวแล้ว..." : "น้ำตาและความรู้สึกของคุณถูกสายลมพัดพาไปแล้ว...";
+        // บันทึกข้อความลงความจำของเบราว์เซอร์
+        localStorage.setItem('secretMessage', msg); 
+        
+        document.getElementById('status-message').innerText = storyPath === 'camellia' 
+            ? "ความหวังของคุณถูกส่งไปถึงดวงดาวและถูกบันทึกไว้แล้ว..." 
+            : "น้ำตาและความรู้สึกของคุณถูกสายลมพัดพาไปเก็บรักษาไว้แล้ว...";
+        
         document.getElementById('user-input').value = "";
     }
 }
